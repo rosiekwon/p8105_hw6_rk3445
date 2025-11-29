@@ -103,8 +103,7 @@ result |>
 Male victims have a 2.35 times higher odds of having their homicide solved compared to female victims with holding other variables. The 95% confidence interval lies between 1.79 and 3.08.
 
 ```{r}
-#Now run glm for each of the cities in your dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
-
+#Now run glm for each of the cities in your dataset
 fit_cities = function(df){
   glm(
     solve_status ~ victim_age + victim_sex + victim_race, 
@@ -112,20 +111,50 @@ fit_cities = function(df){
     data = df) 
 }
 
-#Create a list of dataframes, and iterate to fit the model each time
+#Extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
 
 nested_results = 
   homicides |> 
   nest(data = -city_state) |> 
   mutate(
-    fits = map(data, fit_cities),
-    results = map(fits, broom::tidy)
+    fits = purrr::map(data, fit_cities),
+    results = purrr::map(fits, ~broom::tidy(.x, conf.int = TRUE, exponentiate = TRUE))
+
   ) |> 
   select(city_state, results) |> 
-  unnest(results)
+  unnest(results) |> 
+  filter(term == "victim_sexMale") |> 
+  select(city_state, estimate, conf.low, conf.high) 
+
+
+knitr::kable(nested_results)
 ```
 
 
-Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
+```{r, fig.width= 12, fig.height= 25}
+#Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
 
+nested_results |> 
+  mutate(city_state = fct_reorder(city_state, estimate)) |> 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.3) +
+  geom_hline(yintercept = 1, color = "red", linewidth = 0.4) +
+  coord_flip() +
+  scale_x_discrete(expand = expansion(add = 0.1)) +
+  labs(
+    x = "City",
+    y = "Adjusted Odds Ratio (Male vs Female)",
+    title = "Adjusted OR for Solving Homicides by Victim Sex"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 12, margin = margin(r = 10))
+  )
+```
 
+I added OR = 1 as a reference line to interpret which victim of sex is more likely to be solved. 
+
+Most cities including New York, Baton Rouge, Cincinnati, Chicago, Long Beach, San Diego, and others show ORs above 1, indicating that male-victim homicides are more likely to be solved. Especially, New York City shows the largest ORs with wide confidence intervals, suggesting strong differences but also high uncertainty. 
+
+When the 95% confidence interval includes 1, the difference is not statistically significant, meaning we cannot conclude that victim sex affects clearance rates in those cities. Importantly, although a few cities such as Albuquerque, Fresno and Stockton have ORs below 1, none of them show statistically significant evidence that cases involving female victims are more likely to be solved.
