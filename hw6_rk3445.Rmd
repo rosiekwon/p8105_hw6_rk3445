@@ -51,3 +51,43 @@ homicides =
   ) 
 ```
 
+The dataset from Washington Post homicide data contains information about murders in U.S. cities, including:
+
+- `uid`: unique identifier for each case
+
+- `victim_last`, `victim_first`: victim’s name
+
+- `victim_age`, `victim_sex`, `victim_race`: demographics of victims
+
+- `city`, `state`: location
+
+- `disposition`: whether the case was solved or not
+
+Dataset includes a total of `r nrow(homicides)` observations and `r ncol(homicides)` variables.
+ 
+```{r}
+#For the city of Baltimore, MD, use the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Save the output of glm as an R object;
+
+homicides_md =
+  homicides |> 
+  filter(
+    city_state == "Baltimore, MD"
+  )
+
+fit_md = 
+  homicides_md |> 
+  glm(
+    solve_status ~ victim_age + victim_sex + victim_race, 
+    family = binomial(link = "logit"), 
+    data = _) 
+
+#apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
+
+broom::tidy(fit_md, conf.int = TRUE, exponentiate = TRUE) 
+```
+
+
+Now run glm for each of the cities in your dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
+
+Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
+
