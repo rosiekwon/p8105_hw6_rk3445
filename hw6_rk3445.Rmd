@@ -1,0 +1,53 @@
+---
+title: "p8105_hw6_rk3445"
+author: "Rosie Kwon"
+output: html_document
+---
+
+```{r, include = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(rvest)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+# Problem 1
+
+```{r}
+#Create a city_state variable, and a binary variable indicating whether the homicide is solved. Omit cities Dallas, TX; Phoenix, AZ; and Kansas City, MO – these don’t report victim race. Also omit Tulsa, AL – this is a data entry mistake. For this problem, limit your analysis those for whom victim_race is white or black. Be sure that victim_age is numeric.
+homicides = 
+  read_csv("data/homicide-data.csv", na = c("NA", "Unknown", "")) |> 
+  janitor::clean_names() |> 
+  mutate(
+    city_state = paste(city , state, sep = ", "),
+    solve_status = case_match(
+      disposition,
+      "Closed without arrest" ~ 1,
+      "Open/No arrest" ~ 1,
+      "Closed by arrest" ~ 0
+    ),
+    victim_age = as.numeric(victim_age)
+  ) |> 
+  filter(
+    !(city_state %in% c("Dallas, TX", "Phoenix, AZ", 
+                           "Kansas City, MO", "Tulsa, AL")),
+    victim_race %in% c("White", "Black")
+  ) 
+```
+
