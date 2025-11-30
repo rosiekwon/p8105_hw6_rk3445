@@ -265,24 +265,46 @@ birthweight =
 birthweight |> skimr::skim()
 ```
 
-Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+The birthweight dataset has `r nrow(birthweight)` infants data with `r ncol(birthweight)` measurements. It is cleaned by standardizing variable names, converting appropriate numeric variables (infant sex, malformations, father’s race, mother’s race) into factors. I verified that the dataset doesn't contain any missing values. 
+
+--
+
+Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
+
+```{r}
+linear_prop = lm(
+    bwt ~ bhead + blength + gaweeks + ppbmi + smoken + wtgain + babysex, 
+    data = birthweight)  
+```
+
+Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+
+```{r}
+birthweight |> 
+  add_predictions(linear_prop) |> 
+  add_residuals(linear_prop) |> 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point(alpha = 0.4) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(
+    title = "Residuals vs Fitted Values",
+    x = "Fitted Birthweight",
+    y = "Residual"
+  ) +
+  theme_minimal()
+
+```
 
 
 Compare your model to two others:
 
-- One using length at birth and gestational age as predictors (main effects only)
-- One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+- A model using length at birth and gestational age as predictors (main effects only)
 
 ```{r}
 linear_main = lm(bwt ~ blength + gaweeks, data = birthweight)  
-
-birthweight |> 
-  add_predictions(linear_main) |> 
-  add_residuals(linear_main) |> 
-  ggplot(aes(x = blength, y = bwt)) +
-  geom_point() +
-  geom_line(aes(y = pred), color = "red")
 ```
+
+- A model using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 
 ```{r}
 linear_interaction = lm(bwt ~ bhead * blength * babysex, data = birthweight)
