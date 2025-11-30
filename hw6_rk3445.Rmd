@@ -157,4 +157,32 @@ I added OR = 1 as a reference line to interpret which victim of sex is more like
 
 Most cities including New York, Baton Rouge, Cincinnati, Chicago, Long Beach, San Diego, and others show ORs above 1, indicating that male-victim homicides are more likely to be solved. Especially, New York City shows the largest ORs with wide confidence intervals, suggesting strong differences but also high uncertainty. 
 
-When the 95% confidence interval includes 1, the difference is not statistically significant, meaning we cannot conclude that victim sex affects clearance rates in those cities. Importantly, although a few cities such as Albuquerque, Fresno and Stockton have ORs below 1, none of them show statistically significant evidence that cases involving female victims are more likely to be solved.
+When the 95% confidence interval includes 1, the difference is not statistically significant, meaning we cannot conclude that victim sex affects clearance rates in those cities. Importantly, although a few cities such as Albuquerque, Fresno and Stockton have ORs below 1, none of them show statistically significant evidence that cases involving female victims are more likely to be solved than male victims.
+
+# Problem 2
+
+```{r}
+#Load library and central Park weather data
+library(p8105.datasets)
+library(modelr)
+data("weather_df")
+```
+
+We’ll focus on a simple linear regression with tmax as the response with tmin and prcp as the predictors, and are interested in the distribution of two quantities estimated from these data: Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities : $\hat{r}^2$, $\hat{\beta}_1 / \hat{\beta}_2$
+
+
+```{r}
+bootstrap_results =
+  weather_df |> 
+  bootstrap(n = 10) |>     
+  mutate(
+    model = map(strap, \(df) lm(tmax ~ tmin + prcp, data = df)),
+    r_sq = map_dbl(model, ~ broom::glance(.x)$r.squared),
+    beta_ratio = map(model, broom::tidy) 
+  ) |> 
+  select(r_sq, beta_ratio)
+
+```
+
+Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for 
+
