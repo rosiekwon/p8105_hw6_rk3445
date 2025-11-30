@@ -168,21 +168,150 @@ library(modelr)
 data("weather_df")
 ```
 
-We’ll focus on a simple linear regression with tmax as the response with tmin and prcp as the predictors, and are interested in the distribution of two quantities estimated from these data: Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities : $\hat{r}^2$, $\hat{\beta}_1 / \hat{\beta}_2$
+A simple linear regression with tmax as the response with tmin and prcp as the predictors, and are interested in the distribution of two quantities estimated from these data: Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities : $\hat{r}^2$, $\hat{\beta}_1 / \hat{\beta}_2$
 
 
 ```{r}
 bootstrap_results =
   weather_df |> 
-  bootstrap(n = 10) |>     
+  bootstrap(n = 5000) |> 
   mutate(
     model = map(strap, \(df) lm(tmax ~ tmin + prcp, data = df)),
-    r_sq = map_dbl(model, ~ broom::glance(.x)$r.squared),
-    beta_ratio = map(model, broom::tidy) 
+    r_sq = map_dbl(model, \(m) broom::glance(m)$r.squared),
+    beta_ratio = map_dbl(model, \(m) {
+      tbl = broom::tidy(m)
+      b1 = tbl$estimate[tbl$term == "tmin"]
+      b2 = tbl$estimate[tbl$term == "prcp"]
+      b1 / b2
+    })
   ) |> 
   select(r_sq, beta_ratio)
-
 ```
 
-Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for 
+Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for  $\hat{r}^2$, $\hat{\beta}_1 / \hat{\beta}_2$
+
+1)  $\hat{r}^2$ estimate distribution
+```{r}
+bootstrap_results |> 
+  ggplot(aes(x = r_sq))+
+  geom_histogram() +
+  labs(
+    title = "Bootstrap Distribution of R²",
+    x = "R²",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+Using 5000 times of bootstrap, the distribution of the r_squared value is approximatlly normal, centered around its mean of `r mean(bootstrap_results$r_sq)`. Since r_squared is greater than 0.93, the power of the model is highly stable across resampled datasets.
+
+```{r}
+bootstrap_results |> 
+  summarize(
+    ci_lower = quantile(r_sq, 0.025), 
+    ci_upper = quantile(r_sq, 0.975)
+  ) |> 
+  knitr::kable()
+```
+
+The 95% bootstrap confidence interval of $\hat{r}^2$ is between 0.934 and 0.946. 
+
+2) $\hat{\beta}_1 / \hat{\beta}_2$ estimate distribution
+```{r}
+bootstrap_results |> 
+  ggplot(aes(x = beta_ratio)) +
+  geom_histogram() +
+  labs(
+    title = "Bootstrap Distribution of β1 / β2",
+    x = "β1 / β2",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+The ratio represents the change in `tmin` relative to `prcp` with the same change in `tmax`. The distribution of the ratio β1/β2 where β1 is estimate for `tmin` and β2 is estimate for `prcp`. It is left-skewed and wider and more variable because the precipitation coefficient is close to zero, making the ratio unstable and potentially very large in magnitude. 
+
+```{r}
+bootstrap_results |> 
+  summarize(
+    ci_lower = quantile(beta_ratio, 0.025), 
+    ci_upper = quantile(beta_ratio, 0.975)
+  ) |> 
+  knitr::kable()
+```
+
+The 95% bootstrap confidence interval is between -280.71 and -125.20.
+
+# Problem 3
+
+Load and clean the data for regression analysis (i.e. use appropriate variable names, convert numeric to factor where appropriate, check for the presence of missing data, etc.).
+
+```{r}
+birthweight =
+  read_csv("data/birthweight.csv") |> 
+  janitor::clean_names() |> 
+  mutate(
+    babysex = factor(babysex, levels = c(1, 2), labels = c("Male", "Female")),
+    frace   = factor(frace, 
+                     levels = c(1,2,3,4,8,9),
+                     labels = c("White", "Black", "Asian", "Puerto Rican", 
+                                "Other", "Unknown")),
+    mrace   = factor(mrace,
+                     levels = c(1,2,3,4,8),
+                     labels = c("White", "Black", "Asian", "Puerto Rican", "Other")),
+    malform = factor(malform, levels = c(0,1), labels = c("No", "Yes"))
+  )
+
+birthweight |> skimr::skim()
+```
+
+Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+
+
+Compare your model to two others:
+
+- One using length at birth and gestational age as predictors (main effects only)
+- One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+
+```{r}
+linear_main = lm(bwt ~ blength + gaweeks, data = birthweight)  
+
+birthweight |> 
+  add_predictions(linear_main) |> 
+  add_residuals(linear_main) |> 
+  ggplot(aes(x = blength, y = bwt)) +
+  geom_point() +
+  geom_line(aes(y = pred), color = "red")
+```
+
+```{r}
+linear_interaction = lm(bwt ~ bhead * blength * babysex, data = birthweight)
+```
+
+
+Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+
+```{r}
+cv_df = 
+  crossv_mc(birthweight, n = 100) |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)
+  )
+```
+
+```{r}
+cv_df = 
+  cv_df |> 
+  mutate(
+    linear_main = 
+      map(train, \(df) lm(bwt ~ blength + gaweeks, data = df)),
+    linear_interaction = 
+      map(train, \(df) lm(bwt ~ bhead * blength * babysex, data = df)),
+  ) |> 
+  mutate(
+    rmse_main = map2_dbl(linear_main, test, rmse),
+    rmse_interaction = map2_dbl(linear_interaction, test, rmse)
+  )
+```
 
