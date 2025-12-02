@@ -25,6 +25,9 @@ options(
 
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
+
+set.seed(1)
+
 ```
 
 # Problem 1
@@ -38,9 +41,9 @@ homicides =
     city_state = paste(city , state, sep = ", "),
     solve_status = case_match(
       disposition,
-      "Closed without arrest" ~ 1,
-      "Open/No arrest" ~ 1,
-      "Closed by arrest" ~ 0
+      "Closed without arrest" ~ 0,
+      "Open/No arrest" ~ 0,
+      "Closed by arrest" ~ 1
     ),
     victim_age = as.numeric(victim_age)
   ) |> 
@@ -78,7 +81,7 @@ fit_md =
   homicides_md |> 
   glm(
     solve_status ~ victim_age + victim_sex + victim_race, 
-    family = binomial(link = "logit"), 
+    family = binomial(), 
     data = _) 
 ```
 
@@ -86,6 +89,7 @@ fit_md =
 #apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
 result =
   broom::tidy(fit_md, conf.int = TRUE, exponentiate = TRUE)
+
 
 result |> 
   knitr::kable()
@@ -100,7 +104,7 @@ result |>
   knitr::kable()
 ```
 
-Male victims have a 2.35 times higher odds of having their homicide solved compared to female victims with holding other variables. The 95% confidence interval lies between 1.79 and 3.08.
+Male victims have a 0.42 times higher odds of having their homicide solved compared to female victims with holding other variables. The 95% confidence interval lies between 0.32 and 0.557.
 
 ```{r}
 #Now run glm for each of the cities in your dataset
@@ -155,9 +159,11 @@ nested_results |>
 
 I added OR = 1 as a reference line to interpret which victim of sex is more likely to be solved. 
 
-Most cities including New York, Baton Rouge, Cincinnati, Chicago, Long Beach, San Diego, and others show ORs above 1, indicating that male-victim homicides are more likely to be solved. Especially, New York City shows the largest ORs with wide confidence intervals, suggesting strong differences but also high uncertainty. 
+Cities including Albuquerque, Stockton, Fresno, and Nashville show ORs above 1, indicating that male-victim homicides are more likely to be solved. Those cities show the ORs with wide confidence intervals, suggesting strong differences but also high uncertainty. 
 
-When the 95% confidence interval includes 1, the difference is not statistically significant, meaning we cannot conclude that victim sex affects clearance rates in those cities. Importantly, although a few cities such as Albuquerque, Fresno and Stockton have ORs below 1, none of them show statistically significant evidence that cases involving female victims are more likely to be solved than male victims.
+When the 95% confidence interval includes 1, the difference is not statistically significant, meaning we cannot conclude that victim sex affects clearance rates in those cities. 95% confidence interval for the some of cities including 1 did not show statistically significant evidence that cases involving male victims are more likely to be solved than female victims.
+
+Importantly, some cities such as Memphis, Jacksonville, Houston, New Orleans, Detroit, Oakland and New York have ORs below 1 and have statistical evidence that case with female victims are more likely to be solved than male victims.
 
 # Problem 2
 
@@ -383,7 +389,7 @@ cv_df |>
   knitr::kable()
 ```
 
-The proposed model, which incorporates fetal measurements (head circumference, length, gestational age), maternal variables (BMI, weight gain, smoking), and infant sex, achieved the lowest RMSE (284.87). The interaction model, which includes head circumference, length, sex, and all two- and three-way interactions, had a higher RMSE (291.09). The simple model using only birth length and gestational age produced the highest RMSE (336.38), indicating the weakest predictive ability.
+The proposed model, which incorporates fetal measurements (head circumference, length, gestational age), maternal variables (BMI, weight gain, smoking), and infant sex, achieved the lowest RMSE (283.05). The interaction model, which includes head circumference, length, sex, and all two- and three-way interactions, had a higher RMSE (288.99). The simple model using only birth length and gestational age produced the highest RMSE (332.23), indicating the weakest predictive ability.
 
 My proposed model provides the highest predictive accuracy for birthweight. :)
 
