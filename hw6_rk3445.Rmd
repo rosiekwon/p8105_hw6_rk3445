@@ -251,7 +251,8 @@ birthweight =
   read_csv("data/birthweight.csv") |> 
   janitor::clean_names() |> 
   mutate(
-    babysex = factor(babysex, levels = c(1, 2), labels = c("Male", "Female")),
+    babysex = factor(babysex, 
+                     levels = c(1, 2), labels = c("Male", "Female")),
     frace   = factor(frace, 
                      levels = c(1,2,3,4,8,9),
                      labels = c("White", "Black", "Asian", "Puerto Rican", 
@@ -267,17 +268,40 @@ birthweight |> skimr::skim()
 
 The birthweight dataset has `r nrow(birthweight)` infants data with `r ncol(birthweight)` measurements. It is cleaned by standardizing variable names, converting appropriate numeric variables (infant sex, malformations, father’s race, mother’s race) into factors. I verified that the dataset doesn't contain any missing values. 
 
---
 
-Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
+---
 
 ```{r}
+#Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
+
 linear_prop = lm(
     bwt ~ bhead + blength + gaweeks + ppbmi + smoken + wtgain + babysex, 
     data = birthweight)  
 ```
 
-Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+Based on scientific knowledge, a child’s birthweight is influenced by factors related to by the size of the baby at birth, the gestational period, and the mother's health and lifestyle during pregnancy. 
+
+- Head circumference (bhead) & body length (blength):
+Direct measurements of infant size at birth, expected to be highly correlated with weight.
+ 
+- Gestational period (gaweeks):
+Longer gestation makes more fetal development, resulting in higher birth weight.
+
+- Maternal pre-pregnancy BMI (ppbmi):
+Mother's BMI reflects maternal nutritional status and overall health status.
+
+
+- Maternal weight gain (wtgain):
+linked to fetal growth, meaning that sufficient weight gain is linked to higher birth weight.
+
+- Smoking during pregnancy (smoken):
+It is well-known risk factor for reduced fetal growth due to decreased oxygen supply.
+
+- Baby’s sex (babysex):
+Male infants are likely to be heavier on average than female infants.
+
+
+**Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.**
 
 ```{r}
 birthweight |> 
@@ -295,8 +319,13 @@ birthweight |>
 
 ```
 
+The Residuals vs Fitted Values plot is used to assess whether linearity, constant variance of residuals, and independence of errors—are satisfied. 
 
-Compare your model to two others:
+Residuals should be scattered randomly around zero without forming any patterns. However, in this plot, a large concentration of residuals appears around fitted values of 2,500–3,500g. It shows that the linear model may not fully capture the true relationship between the predictors and birthweight. Also, residuals appear more widely dispersed at higher fitted birthweights, indicating increasing error variance. Lastly, there are a few outlier that exceed 1000g, which might distort the model fit. Based on these, the model needs refinement or alternative modeling to improve fit.
+
+
+
+**Compare your model to two others:**
 
 - A model using length at birth and gestational age as predictors (main effects only)
 
@@ -311,27 +340,34 @@ linear_interaction = lm(bwt ~ bhead * blength * babysex, data = birthweight)
 ```
 
 
-Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+**Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.**
 
 ```{r}
 cv_df = 
-  crossv_mc(birthweight, n = 100) |> 
+  crossv_mc(birthweight, n = 100, test = 0.2) |> 
   mutate(
     train = map(train, as_tibble),
     test = map(test, as_tibble)
   )
 ```
 
+For each split, models were trained on the training subset and evaluated using Root Mean Squared Error (RMSE) on the test data.
+
 ```{r}
 cv_df = 
   cv_df |> 
   mutate(
+    linear_prop =
+      map(train, 
+          \(df) lm(bwt ~ bhead + blength + gaweeks + ppbmi + smoken + wtgain + babysex,
+                   data = df)),
     linear_main = 
       map(train, \(df) lm(bwt ~ blength + gaweeks, data = df)),
     linear_interaction = 
       map(train, \(df) lm(bwt ~ bhead * blength * babysex, data = df)),
   ) |> 
   mutate(
+    rmse_prop = map2_dbl(linear_prop, test, rmse),
     rmse_main = map2_dbl(linear_main, test, rmse),
     rmse_interaction = map2_dbl(linear_interaction, test, rmse)
   )
@@ -340,9 +376,14 @@ cv_df =
 ```{r}
 cv_df |> 
   summarize(
-    RMSE_Main   = mean(rmse_main),
-    RMSE_Inter  = mean(rmse_interaction)
+    RMSE_prop  = mean(rmse_prop),
+    RMSE_Main  = mean(rmse_main),
+    RMSE_Inter = mean(rmse_interaction)
   ) |> 
   knitr::kable()
 ```
+
+The proposed model, which incorporates fetal measurements (head circumference, length, gestational age), maternal variables (BMI, weight gain, smoking), and infant sex, achieved the lowest RMSE (284.87). The interaction model, which includes head circumference, length, sex, and all two- and three-way interactions, had a higher RMSE (291.09). The simple model using only birth length and gestational age produced the highest RMSE (336.38), indicating the weakest predictive ability.
+
+My proposed model provides the highest predictive accuracy for birthweight. :)
 
