@@ -337,3 +337,12 @@ cv_df =
   )
 ```
 
+```{r}
+cv_df |> 
+  summarize(
+    RMSE_Main   = mean(rmse_main),
+    RMSE_Inter  = mean(rmse_interaction)
+  ) |> 
+  knitr::kable()
+```
+
